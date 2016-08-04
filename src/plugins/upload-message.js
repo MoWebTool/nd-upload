@@ -69,6 +69,7 @@ module.exports = function() {
     host._blurTrigger()
   }
 
+  /* jshint max-params: 4 */
   host.on('error', function(type, arg1, file, msg) {
     if (msg) {
       hasErr = true
