@@ -69,7 +69,12 @@ module.exports = function() {
     host._blurTrigger()
   }
 
-  host.on('error', function(type, arg1) {
+  host.on('error', function(type, arg1, file, msg) {
+    if (msg) {
+      hasErr = true
+      showMessage(__(msg))
+      return
+    }
     var template = _messages[type]
 
     if (template) {

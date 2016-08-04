@@ -32,6 +32,7 @@ module.exports = function() {
     // runtimeOrder: 'flash, html5',
     accept: host.get('accept'),
     fileSingleSizeLimit: host.get('maxbytes'),
+    fileValidator: host.get('fileValidator'),
     fileNumLimit: host.get('maxcount')
   }, host.get('core'))).on('all', function() {
     // 所有事件同步到 host

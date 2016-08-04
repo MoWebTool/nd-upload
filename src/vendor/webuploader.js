@@ -526,16 +526,19 @@
             len = events.length,
             handler
 
+        var results = []
         while ( ++i < len ) {
             handler = events[ i ]
-
-            if ( handler.cb.apply( handler.ctx2, args ) === false ) {
-                stoped = true
-                break
-              }
+            var result = handler.cb.apply( handler.ctx2, args )
+            if ( result === false ) {
+              stoped = true
+              break
+            } else {
+              results.push(result)
+            }
           }
 
-        return !stoped
+        return stoped ? false : results
       }
 
       protos = {
@@ -681,8 +684,17 @@
             events = findHandlers( this._events, type )
             allEvents = findHandlers( this._events, 'all' )
 
-            return triggerHanders( events, args ) &&
-                        triggerHanders( allEvents, arguments )
+            var res = triggerHanders( events, args )
+            if (!res) {
+              return res
+            }
+
+            var results = [].concat(res)
+            res = triggerHanders( allEvents, arguments )
+            if (!res) {
+              return res
+            }
+            return results.concat(res)
           }
       }
 
@@ -853,26 +865,46 @@
                 name = 'on' + type.substring( 0, 1 ).toUpperCase() +
                         type.substring( 1 )
 
-            if (
-                        // 调用通过on方法注册的handler.
-                        Mediator.trigger.apply( this, arguments ) === false ||
+            var results = [],
+                res
 
-                        // 调用opts.onEvent
-                        $.isFunction( opts[ name ] ) &&
-                        opts[ name ].apply( this, args ) === false ||
+            // 调用通过on方法注册的handler.
+            res = Mediator.trigger.apply( this, arguments )
+            if (res === false) {
+              return false
+            }
+            results = results.concat(res)
 
-                        // 调用this.onEvent
-                        $.isFunction( this[ name ] ) &&
-                        this[ name ].apply( this, args ) === false ||
-
-                        // 广播所有uploader的事件。
-                        Mediator.trigger.apply( Mediator,
-                        [ this, type ].concat( args ) ) === false ) {
-
+            // 调用opts.onEvent
+            if ($.isFunction( opts[ name ] )) {
+              res = opts[ name ].apply( this, args )
+              if (res === false) {
                 return false
               }
+              results = results.concat(res)
+            }
 
-            return true
+            // 调用this.onEvent
+            if ($.isFunction( this[ name ] )) {
+              res = this[ name ].apply( this, args )
+              if (res === false) {
+                return false
+              }
+              results = results.concat(res)
+            }
+
+            // 广播所有uploader的事件。
+            res = Mediator.trigger.apply( Mediator, [ this, type ].concat( args ) )
+            if (res === false) {
+              return false
+            }
+            results = results.concat(res)
+
+            return results.filter(function(r) {
+              // 只保留Deferred
+              return typeof r === 'object'
+                && typeof r.done === 'function' && typeof r.fail === 'function'
+            })
           },
 
             /**
@@ -2916,29 +2948,46 @@
 
         _addFile: function( file ) {
             var me = this
-
             file = me._wrapFile( file )
+            var deferred = Base.Deferred()
 
-                // 不过类型判断允许不允许，先派送 `beforeFileQueued`
-            if ( !me.owner.trigger( 'beforeFileQueued', file ) ) {
-                return
-              }
+            // 不过类型判断允许不允许，先派送 `beforeFileQueued`
+            var validateResult = me.owner.trigger( 'beforeFileQueued', file )
 
-                // 空文件/零字节文件
+            if (typeof validateResult === 'boolean' || validateResult.length === 0) {
+              // 都是同步校验
+              deferred.resolve(validateResult ? file : false)
+            } else { // 异步校验
+              Base.when.apply( Base, validateResult ).done(function() {
+                var args = Array.prototype.slice.call(arguments, 0)
+                var isInvalid = args.some(function(res) { // 有一个false 则校验不通过
+                  return res.isValid === false  //deferred时返回的为对象
+                })
+                // args.forEach(function(arg) {
+                //   if (arg.isValid === true) {
+                //     me.queue.append( arg )
+                //     me.owner.trigger( 'fileQueued', arg )
+                //   }
+                // })
+                deferred.resolve(isInvalid ? false : file)
+              }).fail(function() {
+                deferred.resolve(false) // 校验失败
+              })
+            }
+
+            // 空文件/零字节文件
             if (!file || file.size === 0) {
-                me.owner.trigger( 'error', 'Q_EMPTY_FILE', file )
-                return
-              }
+              me.owner.trigger( 'error', 'Q_EMPTY_FILE', file )
+              deferred.resolve(false)
+            }
 
                 // 类型不匹配，则派送错误事件，并返回。
             if ( !me.acceptFile( file ) ) {
-                me.owner.trigger( 'error', 'Q_TYPE_DENIED', file )
-                return
-              }
+              me.owner.trigger( 'error', 'Q_TYPE_DENIED', file )
+              deferred.resolve(false)
+            }
 
-            me.queue.append( file )
-            me.owner.trigger( 'fileQueued', file )
-            return file
+            return deferred.promise()
           },
 
         getFile: function( fileId ) {
@@ -2969,24 +3018,36 @@
              * @for  Uploader
              */
         addFile: function( files ) {
-            var me = this
+          var me = this
+          if ( !files.length ) {
+            files = [ files ]
+          }
 
-            if ( !files.length ) {
-                files = [ files ]
-              }
+          var promises = []
+          promises = $.map( files, function( file ) {
+            return me._addFile( file )
+          })
 
-            files = $.map( files, function( file ) {
-                return me._addFile( file )
-              })
-
-            me.owner.trigger( 'filesQueued', files )
-
+          Base.when.apply( Base, promises ).done(function() {
+            var args = Array.prototype.slice.call(arguments, 0)
+            var validFiles = args.filter(function(res) {
+              var isValid = res instanceof WUFile
+              return isValid
+            })
+            //validFiles 超出数量限制部分，会被截掉
+            me.owner.trigger( 'afterValidation', validFiles, me.getFiles().length)
+            validFiles.forEach(function(validFile) {
+              me.queue.append( validFile )
+              me.owner.trigger( 'fileQueued', validFile )
+            })
+            me.owner.trigger( 'filesQueued', validFiles )
             if ( me.options.auto ) {
                 setTimeout(function() {
-                    me.request('start-upload')
-                  }, 20 )
+                  me.request('start-upload')
+                }, 20 )
               }
-          },
+          })
+        },
 
         getStats: function() {
             return this.stats
@@ -4216,38 +4277,21 @@
       api.addValidator( 'fileNumLimit', function() {
         var uploader = this,
             opts = uploader.options,
-            count = 0,
-            max = parseInt( opts.fileNumLimit, 10 ),
-            flag = true
-
+            max = parseInt( opts.fileNumLimit, 10 )
         if ( !max ) {
             return
           }
 
-        uploader.on( 'beforeFileQueued', function( file ) {
-
-            if ( count >= max && flag ) {
-                flag = false
-                this.trigger( 'error', 'Q_EXCEED_NUM_LIMIT', max, file )
-                setTimeout(function() {
-                    flag = true
-                  }, 1 )
+        uploader.on( 'afterValidation', function( validFiles, curCount) {
+          if ( validFiles.length + curCount > max ) {
+              this.trigger( 'error', 'Q_EXCEED_NUM_LIMIT', max )
+              if (max - curCount > 0) {
+                validFiles.splice(max - curCount, validFiles.length - 1)
+              } else {
+                validFiles = []
               }
-
-            return count >= max ? false : true
-          })
-
-        uploader.on( 'fileQueued', function() {
-            count++
-          })
-
-        uploader.on( 'fileDequeued', function() {
-            count--
-          })
-
-        uploader.on( 'reset', function() {
-            count = 0
-          })
+            }
+        })
       })
 
 
@@ -4320,6 +4364,44 @@
 
           })
 
+      })
+
+      /**
+       * @property {int}
+       * @namespace options
+       * @for Uploader
+       * @description 用户定义校验规则。
+       */
+      api.addValidator( 'fileValidator', function() {
+        var uploader = this,
+            opts = uploader.options
+            fileValidator = opts.fileValidator
+
+        if (typeof fileValidator !== 'function') {
+          return
+        }
+
+        uploader.on( 'beforeFileQueued', function( file ) {
+          var me = this
+          var onError = function(msg) {
+            file.setStatus( WUFile.Status.INVALID, 'ratio_error' )
+            me.trigger( 'error', '',  1, file, msg)
+          }
+          //todo
+          var result = fileValidator(file)
+          if (result && typeof result.isValid === 'boolean') {
+            result.isValid === false && onError(result.msg || '')
+            return result.isValid
+          } else {
+            return result.done(function(res) {
+              res.isValid === false && onError(res.msg || '')
+              // return res.isValid
+            }).fail(function(res) {
+              onError(res.msg)
+              // return false
+            })
+          }
+        })
       })
 
         /**
