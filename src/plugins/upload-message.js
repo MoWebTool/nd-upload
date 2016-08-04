@@ -69,7 +69,7 @@ module.exports = function() {
     host._blurTrigger()
   }
 
-  /* jshint max-params: 4 */
+  // eslint-disable-next-line 
   host.on('error', function(type, arg1, file, msg) {
     if (msg) {
       hasErr = true
