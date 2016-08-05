@@ -4388,7 +4388,7 @@
             me.trigger( 'error', '',  1, file, msg)
           }
           //todo
-          var result = fileValidator(file)
+          var result = fileValidator(file, me)
           if (result && typeof result.isValid === 'boolean') {
             result.isValid === false && onError(result.msg || '')
             return result.isValid

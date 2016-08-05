@@ -33,7 +33,8 @@ module.exports = function() {
     accept: host.get('accept'),
     fileSingleSizeLimit: host.get('maxbytes'),
     fileValidator: host.get('fileValidator'),
-    fileNumLimit: host.get('maxcount')
+    fileNumLimit: host.get('maxcount'),
+    trigger: host.get('trigger')
   }, host.get('core'))).on('all', function() {
     // 所有事件同步到 host
     return host.trigger.apply(host, arguments)
