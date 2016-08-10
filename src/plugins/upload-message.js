@@ -44,24 +44,28 @@ module.exports = function() {
   }
 
   var container = $('<div class="ui-upload-message" />')
-    .on('mouseout', function(e) {
-      setTimeout(function() {
-        e.target.style.display = 'none'
-        if (restoreValue) {
-          restoreValue = false
-          host.set('value', '')
-        }
-      }, 500)
-    })
+    // .on('mouseout', function(e) {
+    //   setTimeout(function() {
+    //     e.target.style.display = 'none'
+    //     if (restoreValue) {
+    //       restoreValue = false
+    //       host.set('value', '')
+    //     }
+    //   }, 500)
+    // })
     .appendTo(host.element)
 
   var showMessage = function(text) {
-    if (!host.get('value')) {
-      restoreValue = true
-      host.set('value', 'fake')
-    }
+    // if (!host.get('value')) {
+    //   restoreValue = true
+    //   host.set('value', 'fake')
+    // }
 
     container.text(text).show()
+
+    // setTimeout(function() {
+    //   container.css('display', 'none')
+    // }, 2000)
   }
 
   var hideMessage = function(text) {
@@ -69,8 +73,12 @@ module.exports = function() {
     host._blurTrigger()
   }
 
-  // eslint-disable-next-line 
+  // eslint-disable-next-line
   host.on('error', function(type, arg1, file, msg) {
+    if (type === 'Q_EMPTY') {
+      return
+    }
+
     if (msg) {
       hasErr = true
       showMessage(__(msg))

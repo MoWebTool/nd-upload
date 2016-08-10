@@ -1,6 +1,6 @@
 {
   "name": "nd-upload",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "description": "基于 WebUploader 的上传组件",
   "keywords": [],
   "homepage": "https://github.com/ndfront/nd-upload",
