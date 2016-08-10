@@ -27,7 +27,7 @@ module.exports = function() {
     host = plugin.host
 
   var hasErr
-  var restoreValue
+  // var restoreValue
   var maxcount = host.get('maxcount')
 
   var _messages = {
