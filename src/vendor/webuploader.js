@@ -4387,6 +4387,9 @@
             file.setStatus( WUFile.Status.INVALID, 'ratio_error' )
             me.trigger( 'error', '',  1, file, msg)
           }
+          if (!fileValidator) {
+            return true
+          }
           var result = fileValidator.call(me, file)
           if (result && typeof result.isValid === 'boolean') {
             result.isValid === false && onError(result.msg || '')
