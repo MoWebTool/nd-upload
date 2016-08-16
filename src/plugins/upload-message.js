@@ -73,8 +73,10 @@ module.exports = function() {
     host._blurTrigger()
   }
 
-  // eslint-disable-next-line
-  host.on('error', function(type, arg1, file, msg) {
+  host.on('error', function() {
+    var type = arguments[0]
+    var arg1 = arguments[1]
+    var msg = arguments[3]
     if (type === 'Q_EMPTY') {
       return
     }
