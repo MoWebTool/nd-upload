@@ -120,6 +120,26 @@ var Upload = Widget.extend({
         return val
       }
     },
+    chunked: {
+      value: null, // required
+      getter: function(val, key) {
+        if (typeof val !== 'boolean') {
+          this.attrs[key].value = val = !!this.get('trigger').getAttribute('chunked')
+        }
+
+        return val
+      }
+    },
+    chunkSize: {
+      value: null, // required
+      getter: function(val, key) {
+        if (typeof val !== 'number') {
+          this.attrs[key].value = val = +this.get('trigger').getAttribute('chunkSize')
+        }
+
+        return val
+      }
+    },
     multiple: {
       value: null, // required
       getter: function(val, key) {

@@ -34,6 +34,8 @@ module.exports = function() {
     fileSingleSizeLimit: host.get('maxbytes'),
     fileValidator: host.get('fileValidator'),
     fileNumLimit: host.get('maxcount'),
+    chunked: host.get('chunked'),
+    chunkSize: host.get('chunkSize'),
     trigger: host.get('trigger')
   }, host.get('core'))).on('all', function() {
     // 所有事件同步到 host
